@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-Simple Web Browser - Fast & Privacy-Focused
-Complete standalone version in a single file
-Copy and paste this entire file into Notepad++ to run
-"""
 
 import sys
 import requests
@@ -23,9 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class BrowserEngine:
-    """Core browser engine for fetching and parsing web pages"""
     
-    # Search engines
     SEARCH_ENGINES = {
         'google': 'https://www.google.com/search?q=',
         'duckduckgo': 'https://duckduckgo.com/?q=',
@@ -38,33 +31,27 @@ class BrowserEngine:
         self.current_html: Optional[str] = None
         self.history = []
         self.cookies = {}
-        self.search_engine = 'duckduckgo'  # Privacy-focused default
+        self.search_engine = 'duckduckgo'
         
-        # Privacy-focused headers
         self.default_headers = {
             'User-Agent': 'SimpleBrowser/1.0 (Privacy-Focused)',
-            'DNT': '1',  # Do Not Track
+            'DNT': '1',
             'Sec-Fetch-Dest': 'document',
             'Sec-Fetch-Mode': 'navigate',
         }
     
     def load_page(self, url: str) -> Dict:
-        """Fetch and parse a web page"""
         try:
-            # Check if it's a search query
             if not url.startswith(('http://', 'https://', 'www.')):
-                # It's a search query
                 search_url = self.SEARCH_ENGINES[self.search_engine] + url.replace(' ', '+')
                 logger.info(f"Searching: {url} (via {self.search_engine})")
                 url = search_url
             else:
-                # Ensure valid URL
                 if not url.startswith(('http://', 'https://')):
                     url = 'https://' + url
             
             logger.info(f"Loading: {url}")
             
-            # Privacy: Don't send referrer, minimal headers
             response = requests.get(
                 url,
                 headers=self.default_headers,
@@ -94,7 +81,6 @@ class BrowserEngine:
             }
     
     def _extract_title(self) -> str:
-        """Extract page title from HTML"""
         if not self.current_html:
             return "Untitled"
         
@@ -107,32 +93,27 @@ class BrowserEngine:
             return "Untitled"
     
     def get_parsed_content(self) -> Optional[BeautifulSoup]:
-        """Get parsed HTML content"""
         if not self.current_html:
             return None
         return BeautifulSoup(self.current_html, 'html.parser')
     
     def back(self) -> Optional[str]:
-        """Navigate back in history"""
         if len(self.history) > 1:
             self.history.pop()
             return self.history[-1]
         return None
     
     def clear_cookies(self):
-        """Privacy: Clear all cookies"""
         self.cookies.clear()
         logger.info("Cookies cleared")
     
     def set_search_engine(self, engine: str):
-        """Set search engine (google, duckduckgo, bing, startpage)"""
         if engine in self.SEARCH_ENGINES:
             self.search_engine = engine
             logger.info(f"Search engine changed to: {engine}")
 
 
 class BrowserWindow(QMainWindow):
-    """Main browser window"""
     
     def __init__(self):
         super().__init__()
@@ -141,63 +122,51 @@ class BrowserWindow(QMainWindow):
         self.setup_privacy()
         
     def init_ui(self):
-        """Initialize user interface"""
         self.setWindowTitle("Simple Web Browser - Privacy Focused")
         self.setGeometry(100, 100, 1200, 800)
         
-        # Main layout
         central_widget = QWidget()
         main_layout = QVBoxLayout(central_widget)
         
-        # Navigation bar
         nav_layout = QHBoxLayout()
         
-        # Back button
         self.back_btn = QPushButton("← Back")
         self.back_btn.clicked.connect(self.go_back)
         nav_layout.addWidget(self.back_btn)
         
-        # URL bar
         self.url_bar = QLineEdit()
         self.url_bar.setPlaceholderText("Enter URL or search query...")
         self.url_bar.returnPressed.connect(self.load_url)
         nav_layout.addWidget(self.url_bar)
         
-        # Go button
         self.go_btn = QPushButton("Go")
         self.go_btn.clicked.connect(self.load_url)
         nav_layout.addWidget(self.go_btn)
         
-        # Search engine selector
         self.search_btn = QPushButton("🔍 DuckDuckGo")
         self.search_btn.clicked.connect(self.toggle_search_engine)
         nav_layout.addWidget(self.search_btn)
         
-        # Privacy button
         self.privacy_btn = QPushButton("🔒 Clear Data")
         self.privacy_btn.clicked.connect(self.clear_data)
         nav_layout.addWidget(self.privacy_btn)
         
         main_layout.addLayout(nav_layout)
         
-        # Web view
         self.web_view = QWebEngineView()
         main_layout.addWidget(self.web_view)
         
-        # Status bar
         self.status_label = QLabel("Ready • Search Engine: DuckDuckGo (Privacy-Focused)")
         main_layout.addWidget(self.status_label)
         
         self.setCentralWidget(central_widget)
     
     def setup_privacy(self):
-        """Configure privacy settings"""
         profile = QWebEngineProfile()
         profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies)
         self.web_view.page().setWebEngineProfile(profile)
     
     def load_url(self):
-        """Load URL from address bar"""
         url = self.url_bar.text().strip()
         if not url:
             return
@@ -235,7 +204,6 @@ class BrowserWindow(QMainWindow):
             self.status_label.setText(f"✗ Error: {result['error']}")
     
     def go_back(self):
-        """Navigate back"""
         prev_url = self.engine.back()
         if prev_url:
             self.url_bar.setText(prev_url)
@@ -244,7 +212,6 @@ class BrowserWindow(QMainWindow):
             self.status_label.setText("No history")
     
     def toggle_search_engine(self):
-        """Cycle through search engines"""
         engines = list(self.engine.SEARCH_ENGINES.keys())
         current_idx = engines.index(self.engine.search_engine)
         next_engine = engines[(current_idx + 1) % len(engines)]
@@ -254,13 +221,11 @@ class BrowserWindow(QMainWindow):
         self.status_label.setText(f"Search engine changed to: {next_engine}")
     
     def clear_data(self):
-        """Clear privacy data"""
         self.engine.clear_cookies()
         self.status_label.setText("✓ All cookies and privacy data cleared")
 
 
 def main():
-    """Main entry point"""
     app = QApplication(sys.argv)
     browser = BrowserWindow()
     browser.show()
