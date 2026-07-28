@@ -1,1 +1,0 @@
-"""Simple Web Browser Package"""
