@@ -6,6 +6,10 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 import numpy as np
 
+# ============================================================================
+# Math Utilities
+# ============================================================================
+
 def clamp(value, minval, maxval):
     return max(minval, min(maxval, value))
 
@@ -44,20 +48,29 @@ def rotation_matrix(yaw, pitch, roll):
 def terrain_height(x, z):
     return 20.0 + 15.0 * math.sin(x * 0.01) * math.cos(z * 0.01)
 
+# ============================================================================
+# Aircraft Physics
+# ============================================================================
+
 class Aircraft:
     def __init__(self):
+        # Mass and geometry
         self.mass = 1000.0
         self.S = 20.0
         self.gravity = 9.81
         self.rho = 1.225
+        # Aerodynamics
         self.CL0 = 0.2
         self.CL_alpha = 5.0
         self.CD0 = 0.02
         self.k = 0.05
+        # Propulsion
         self.max_thrust = 30000.0
+        # Control rates
         self.pitch_rate = 2.0
         self.roll_rate = 2.5
         self.yaw_rate = 1.0
+        # State
         self.position = (0.0, 60.0, 0.0)
         self.velocity = (25.0, 0.0, 0.0)
         self.pitch = 0.0
@@ -118,6 +131,10 @@ class Aircraft:
         elif altitude <= 0.05:
             self.velocity = (0.0, 0.0, 0.0)
             self.position = (self.position[0], ground_y + 0.05, self.position[2])
+
+# ============================================================================
+# Graphics and Rendering
+# ============================================================================
 
 class FlightSimulator:
     def __init__(self, width=1200, height=800):
@@ -385,6 +402,10 @@ class FlightSimulator:
         if self.crashed_tex is not None:
             self.delete_text_texture(self.crashed_tex)
         pygame.quit()
+
+# ============================================================================
+# Main
+# ============================================================================
 
 if __name__ == "__main__":
     sim = FlightSimulator()
