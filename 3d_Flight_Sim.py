@@ -1,5 +1,6 @@
 import math
 import pygame
+import sys
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
@@ -131,6 +132,8 @@ class FlightSimulator:
         pygame.display.set_caption("3D Flight Simulator")
         self.setup_gl()
         self.clock = pygame.time.Clock()
+        self.crashed_tex = None
+        self.crashed_tex_size = (0, 0)
 
     def setup_gl(self):
         glEnable(GL_DEPTH_TEST)
@@ -227,17 +230,38 @@ class FlightSimulator:
         glPopMatrix()
         glEnable(GL_LIGHTING)
 
-    def render_text(self, text, x, y, size=72, color=(255,0,0), bold=True):
+    def make_text_texture(self, text, size=72, color=(255,0,0), bold=True):
         font = pygame.font.SysFont(None, size, bold)
-        text_surface = font.render(text, True, color)
-        w, h = text_surface.get_size()
-        text_data = pygame.image.tostring(text_surface, "RGBA", True)
+        surf = font.render(text, True, color)
+        w, h = surf.get_size()
+        data = pygame.image.tostring(surf, "RGBA", True)
         tex_id = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, tex_id)
         glPixelStorei(GL_UNPACK_ALIGNMENT,1)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, text_data)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data)
+        return tex_id, w, h
+
+    def delete_text_texture(self, tex_id):
+        try:
+            glDeleteTextures([tex_id])
+        except Exception:
+            pass
+
+    def cache_crash_texture(self, text="CRASHED!", size=72, color=(255,0,0), bold=True):
+        if self.crashed_tex is not None:
+            self.delete_text_texture(self.crashed_tex)
+        tex, w, h = self.make_text_texture(text, size, color, bold)
+        self.crashed_tex = tex
+        self.crashed_tex_size = (w, h)
+
+    def render_text(self, text, x, y, size=72, color=(255,0,0), bold=True, use_cache=False):
+        if use_cache and self.crashed_tex is not None:
+            tex_id = self.crashed_tex
+            w, h = self.crashed_tex_size
+        else:
+            tex_id, w, h = self.make_text_texture(text, size, color, bold)
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glEnable(GL_TEXTURE_2D)
@@ -262,19 +286,41 @@ class FlightSimulator:
         glMatrixMode(GL_MODELVIEW)
         glDisable(GL_TEXTURE_2D)
         glDisable(GL_BLEND)
-        try:
-            glDeleteTextures([tex_id])
-        except Exception:
-            pass
+        if not use_cache:
+            try:
+                glDeleteTextures([tex_id])
+            except Exception:
+                pass
+
+    def draw_hud_stats(self):
+        speed = vec_len(self.aircraft.velocity)
+        altitude = self.aircraft.position[1] - terrain_height(self.aircraft.position[0], self.aircraft.position[2])
+        text = f"SPD:{int(speed)} ALT:{int(altitude)}"
+        self.render_text(text, 10, 10, size=20, color=(0,255,0), bold=False, use_cache=False)
+
+    def draw_axes(self, length=5.0):
+        glPushMatrix()
+        glLineWidth(2.0)
+        glBegin(GL_LINES)
+        glColor3f(1,0,0)
+        glVertex3f(0,0,0); glVertex3f(length,0,0)
+        glColor3f(0,1,0)
+        glVertex3f(0,0,0); glVertex3f(0,length,0)
+        glColor3f(0,0,1)
+        glVertex3f(0,0,0); glVertex3f(0,0,length)
+        glEnd()
+        glPopMatrix()
 
     def draw_hud(self):
         if not self.aircraft.alive:
-            text = "CRASHED!"
-            font = pygame.font.SysFont(None, 72, True)
-            w, h = font.size(text)
+            if self.crashed_tex is None:
+                self.cache_crash_texture()
+            w, h = self.crashed_tex_size
             x = (self.width - w) // 2
             y = (self.height - h) // 2
-            self.render_text(text, x, y, size=72, color=(255, 0, 0), bold=True)
+            self.render_text("CRASHED!", x, y, size=72, color=(255,0,0), bold=True, use_cache=True)
+        else:
+            self.draw_hud_stats()
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
@@ -320,6 +366,8 @@ class FlightSimulator:
         self.draw_sky()
         self.draw_terrain()
         self.draw_aircraft()
+        if self.debug_info:
+            self.draw_axes()
         self.draw_hud()
         pygame.display.flip()
 
@@ -334,6 +382,8 @@ class FlightSimulator:
             dt = self.clock.tick(60) / 1000.0
             self.update(dt, controls)
             self.render()
+        if self.crashed_tex is not None:
+            self.delete_text_texture(self.crashed_tex)
         pygame.quit()
 
 if __name__ == "__main__":
