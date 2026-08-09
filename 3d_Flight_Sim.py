@@ -180,6 +180,7 @@ class FlightSimulator:
         self.debug_info = True
         
         pygame.init()
+        pygame.font.init()
         pygame.display.set_mode((width, height), DOUBLEBUF | OPENGL)
         pygame.display.set_caption("3D Flight Simulator")
         
@@ -307,8 +308,28 @@ class FlightSimulator:
         glPopMatrix()
         glEnable(GL_LIGHTING)
 
-    def draw_hud(self):
-        """Draw heads-up display info on screen"""
+    def render_text(self, text, x, y, size=72, color=(255,0,0), bold=True):
+        """Render text using pygame.font into an OpenGL texture and draw it at screen coords."""
+        # Create font and surface
+        font = pygame.font.SysFont(None, size, bold)
+        text_surface = font.render(text, True, color)
+        w, h = text_surface.get_size()
+        text_data = pygame.image.tostring(text_surface, "RGBA", True)
+
+        # Create texture
+        tex_id = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, tex_id)
+        glPixelStorei(GL_UNPACK_ALIGNMENT,1)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, text_data)
+
+        # Draw textured quad in orthographic projection
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glEnable(GL_TEXTURE_2D)
+        glBindTexture(GL_TEXTURE_2D, tex_id)
+
         glMatrixMode(GL_PROJECTION)
         glPushMatrix()
         glLoadIdentity()
@@ -316,21 +337,40 @@ class FlightSimulator:
         glMatrixMode(GL_MODELVIEW)
         glPushMatrix()
         glLoadIdentity()
-        
-        glDisable(GL_LIGHTING)
-        glDisable(GL_DEPTH_TEST)
-        
-        speed = vec_len(self.aircraft.velocity)
-        altitude = self.aircraft.position[1] - terrain_height(self.aircraft.position[0], self.aircraft.position[2])
-        
-        glColor3f(0, 1, 0)
-        
-        glEnable(GL_DEPTH_TEST)
-        glEnable(GL_LIGHTING)
+
+        glColor3f(1,1,1)
+        glBegin(GL_QUADS)
+        glTexCoord2f(0,0); glVertex2f(x, y)
+        glTexCoord2f(1,0); glVertex2f(x + w, y)
+        glTexCoord2f(1,1); glVertex2f(x + w, y + h)
+        glTexCoord2f(0,1); glVertex2f(x, y + h)
+        glEnd()
+
+        glPopMatrix()
         glMatrixMode(GL_PROJECTION)
         glPopMatrix()
         glMatrixMode(GL_MODELVIEW)
-        glPopMatrix()
+
+        glDisable(GL_TEXTURE_2D)
+        glDisable(GL_BLEND)
+
+        # Clean up texture
+        try:
+            glDeleteTextures([tex_id])
+        except Exception:
+            pass
+
+    def draw_hud(self):
+        """Draw heads-up display info on screen. Shows a bold red CRASHED! when the aircraft is not alive."""
+        # If crashed, render big red "CRASHED!" in bold at center of screen
+        if not self.aircraft.alive:
+            text = "CRASHED!"
+            # Use pygame font to measure text size so we can center it
+            font = pygame.font.SysFont(None, 72, True)
+            w, h = font.size(text)
+            x = (self.width - w) // 2
+            y = (self.height - h) // 2
+            self.render_text(text, x, y, size=72, color=(255, 0, 0), bold=True)
 
     def handle_input(self):
         """Handle keyboard input"""
@@ -387,6 +427,9 @@ class FlightSimulator:
         self.draw_sky()
         self.draw_terrain()
         self.draw_aircraft()
+
+        # Draw HUD (2D overlay)
+        self.draw_hud()
         
         pygame.display.flip()
 
