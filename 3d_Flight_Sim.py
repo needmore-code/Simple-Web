@@ -1,416 +1,309 @@
+import sys
 import math
+import time
+import numpy as np
 import pygame
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
-import numpy as np
 
-# ============================================================================
-# Math Utilities
-# ============================================================================
-
-def clamp(value, minval, maxval):
-    return max(minval, min(maxval, value))
-
-def vec_len(v):
-    return math.sqrt(v[0]**2 + v[1]**2 + v[2]**2)
-
-def vec_normalize(v):
-    length = vec_len(v)
-    if length < 1e-6:
-        return (0.0, 0.0, 0.0)
-    return (v[0]/length, v[1]/length, v[2]/length)
-
-def vec_add(v1, v2):
-    return (v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2])
-
-def vec_mul_scalar(v, s):
-    return (v[0]*s, v[1]*s, v[2]*s)
-
-def mat_vec_mul(M, v):
-    return (
-        M[0][0]*v[0] + M[0][1]*v[1] + M[0][2]*v[2],
-        M[1][0]*v[0] + M[1][1]*v[1] + M[1][2]*v[2],
-        M[2][0]*v[0] + M[2][1]*v[1] + M[2][2]*v[2],
-    )
-
-def rotation_matrix(yaw, pitch, roll):
-    """Create a rotation matrix from Euler angles (yaw, pitch, roll)"""
-    cy, sy = math.cos(yaw), math.sin(yaw)
-    cp, sp = math.cos(pitch), math.sin(pitch)
-    cr, sr = math.cos(roll), math.sin(roll)
-    
-    # ZYX rotation order
-    return (
-        (cy*cp, cy*sp*sr - sy*cr, cy*sp*cr + sy*sr),
-        (sy*cp, sy*sp*sr + cy*cr, sy*sp*cr - cy*sr),
-        (-sp,   cp*sr,            cp*cr),
-    )
-
-def terrain_height(x, z):
-    """Simple procedural terrain using sine waves"""
-    return 20.0 + 15.0 * math.sin(x * 0.01) * math.cos(z * 0.01)
-
-# ============================================================================
-# Aircraft Physics
-# ============================================================================
 
 class Aircraft:
     def __init__(self):
-        # Mass and geometry
-        self.mass = 1000.0  # kg
-        self.S = 20.0       # wing area m^2
-        self.gravity = 9.81 # m/s^2
-        self.rho = 1.225    # air density kg/m^3
-        
-        # Aerodynamics
-        self.CL0 = 0.2      # base lift coefficient
-        self.CL_alpha = 5.0 # lift coefficient per radian
-        self.CD0 = 0.02     # base drag coefficient
-        self.k = 0.05       # induced drag coefficient
-        
-        # Propulsion
-        self.max_thrust = 30000.0  # N
-        
-        # Control rates
-        self.pitch_rate = 2.0  # rad/s
-        self.roll_rate = 2.5   # rad/s
-        self.yaw_rate = 1.0    # rad/s
-        
-        # State
-        self.position = (0.0, 60.0, 0.0)
-        self.velocity = (25.0, 0.0, 0.0)
+        self.pos = np.array([0.0, 60.0, 0.0], dtype=float)
+        self.vel = np.array([0.0, 0.0, -30.0], dtype=float)
         self.pitch = 0.0
         self.roll = 0.0
         self.yaw = 0.0
         self.throttle = 0.3
-        self.alive = True
+        self.crashed = False
+        self.mass = 1200.0
+        self.wing_area = 16.2
+        self.cl0 = 0.2
+        self.cl_alpha = 5.0
+        self.cd0 = 0.02
+        self.cd_alpha = 0.4
+        self.max_thrust = 12000.0
 
     def reset(self):
-        self.position = (0.0, 60.0, 0.0)
-        self.velocity = (25.0, 0.0, 0.0)
-        self.pitch = 0.0
-        self.roll = 0.0
-        self.yaw = 0.0
-        self.throttle = 0.3
-        self.alive = True
+        self.__init__()
 
-    def physics_step(self, dt, controls):
-        if not self.alive:
+    def get_body_axes(self):
+        cy = math.cos(self.yaw); sy = math.sin(self.yaw)
+        cp = math.cos(self.pitch); sp = math.sin(self.pitch)
+        cr = math.cos(self.roll); sr = math.sin(self.roll)
+        Ry = np.array([[cy, 0.0, sy],
+                       [0.0, 1.0, 0.0],
+                       [-sy, 0.0, cy]], dtype=float)
+        Rx = np.array([[1.0, 0.0, 0.0],
+                       [0.0, cp, -sp],
+                       [0.0, sp, cp]], dtype=float)
+        Rz = np.array([[cr, -sr, 0.0],
+                       [sr, cr, 0.0],
+                       [0.0, 0.0, 1.0]], dtype=float)
+        R = Ry @ Rx @ Rz
+        forward = R @ np.array([0.0, 0.0, -1.0], dtype=float)
+        right = R @ np.array([1.0, 0.0, 0.0], dtype=float)
+        up = R @ np.array([0.0, 1.0, 0.0], dtype=float)
+        forward /= (np.linalg.norm(forward) + 1e-12)
+        right /= (np.linalg.norm(right) + 1e-12)
+        up /= (np.linalg.norm(up) + 1e-12)
+        return forward, right, up
+
+    def update(self, dt, pitch_input, roll_input, yaw_input, throttle_input):
+        if self.crashed:
+            self.vel += np.array([0.0, -9.81, 0.0]) * dt * 0.2
+            self.pos += self.vel * dt
             return
-        
-        # Update orientation
-        self.pitch += (-controls['pitch']) * self.pitch_rate * dt
-        self.roll += (controls['roll']) * self.roll_rate * dt
-        self.yaw += (controls['yaw']) * self.yaw_rate * dt
-        
-        # Clamp pitch to avoid flipping
-        self.pitch = clamp(self.pitch, -math.pi/2 + 0.1, math.pi/2 - 0.1)
-        
-        # Throttle
-        if controls['th_up']:
-            self.throttle = clamp(self.throttle + 0.8 * dt, 0.0, 1.0)
-        if controls['th_down']:
-            self.throttle = clamp(self.throttle - 0.8 * dt, 0.0, 1.0)
-        
-        # Orientation matrix and body axes
-        R = rotation_matrix(self.yaw, self.pitch, self.roll)
-        forward = mat_vec_mul(R, (1.0, 0.0, 0.0))
-        up = mat_vec_mul(R, (0.0, 1.0, 0.0))
-        
-        # Speed
-        speed = vec_len(self.velocity)
-        
-        # Transform velocity to body frame
-        V_world = self.velocity
-        V_body = (
-            R[0][0]*V_world[0] + R[1][0]*V_world[1] + R[2][0]*V_world[2],
-            R[0][1]*V_world[0] + R[1][1]*V_world[1] + R[2][1]*V_world[2],
-            R[0][2]*V_world[0] + R[1][2]*V_world[1] + R[2][2]*V_world[2],
-        )
-        
-        # Angle of attack
-        aoa = math.atan2(V_body[1], max(1e-6, V_body[0]))
-        
-        # Aerodynamic coefficients
-        CL = self.CL0 + self.CL_alpha * aoa
-        CD = self.CD0 + self.k * (CL**2)
-        
-        # Dynamic pressure
-        q = 0.5 * self.rho * speed * speed
-        
-        # Forces
-        lift_mag = q * self.S * CL
-        drag_mag = q * self.S * CD
-        lift = vec_mul_scalar(up, lift_mag)
-        
-        vel_norm = vec_normalize(self.velocity) if speed > 0.01 else (0.0, 0.0, 0.0)
-        drag = vec_mul_scalar(vel_norm, -drag_mag)
-        thrust = vec_mul_scalar(forward, self.throttle * self.max_thrust)
-        gravity_force = (0.0, -self.mass * self.gravity, 0.0)
-        
-        # Total force
-        total_force = vec_add(vec_add(vec_add(thrust, lift), drag), gravity_force)
-        accel = vec_mul_scalar(total_force, 1.0 / self.mass)
-        
-        # Integrate
-        self.velocity = vec_add(self.velocity, vec_mul_scalar(accel, dt))
-        self.position = vec_add(self.position, vec_mul_scalar(self.velocity, dt))
-        
-        # Ground collision
-        ground_y = terrain_height(self.position[0], self.position[2])
-        altitude = self.position[1] - ground_y
-        
-        if altitude <= 1.0 and speed > 12.0:
-            self.alive = False
-        elif altitude <= 0.05:
-            self.velocity = (0.0, 0.0, 0.0)
-            self.position = (self.position[0], ground_y + 0.05, self.position[2])
+        pitch_rate = pitch_input * 0.8
+        roll_rate = roll_input * 1.2
+        yaw_rate = yaw_input * 0.6
+        self.pitch += pitch_rate * dt
+        self.roll += roll_rate * dt
+        self.yaw += yaw_rate * dt
+        max_pitch = math.pi / 3.5
+        max_roll = math.pi / 2.5
+        self.pitch = max(-max_pitch, min(max_pitch, self.pitch))
+        self.roll = max(-max_roll, min(max_roll, self.roll))
+        self.throttle += throttle_input * dt * 0.5
+        self.throttle = max(0.0, min(1.0, self.throttle))
+        forward, right, up = self.get_body_axes()
+        airspeed = np.linalg.norm(self.vel) + 1e-6
+        rho = 1.225
+        vel_dir = self.vel / (airspeed + 1e-9)
+        aoa = math.asin(max(-1.0, min(1.0, np.dot(vel_dir, up))))
+        cl = self.cl0 + self.cl_alpha * aoa
+        lift = 0.5 * rho * airspeed * airspeed * self.wing_area * cl
+        cd = self.cd0 + self.cd_alpha * (aoa * aoa)
+        drag = 0.5 * rho * airspeed * airspeed * self.wing_area * cd
+        thrust = self.max_thrust * self.throttle
+        lift_force = up * lift
+        drag_force = -vel_dir * drag
+        thrust_force = forward * thrust
+        gravity_force = np.array([0.0, -9.81 * self.mass, 0.0], dtype=float)
+        total_force = lift_force + drag_force + thrust_force + gravity_force
+        accel = total_force / self.mass
+        self.vel += accel * dt
+        self.pos += self.vel * dt
+        bank_turn_effect = self.roll * 0.8
+        self.yaw += bank_turn_effect * dt * 0.1
+        if self.pos[1] <= 0.0:
+            self.pos[1] = 0.0
+            self.crashed = True
+            self.vel *= 0.2
+            self.pitch = 0.0
+            self.roll = max(-0.5, min(0.5, self.roll))
+            print("CRASHED!")
 
-# ============================================================================
-# Graphics and Rendering
-# ============================================================================
 
-class FlightSimulator:
-    def __init__(self, width=1200, height=800):
-        self.width = width
-        self.height = height
-        self.aircraft = Aircraft()
-        self.paused = False
-        self.debug_info = True
-        
-        pygame.init()
-        pygame.display.set_mode((width, height), DOUBLEBUF | OPENGL)
-        pygame.display.set_caption("3D Flight Simulator")
-        
-        self.setup_gl()
-        self.clock = pygame.time.Clock()
+def draw_aircraft():
+    glBegin(GL_TRIANGLES)
+    glColor3f(0.6, 0.6, 0.85)
+    glVertex3f(0.0, 0.0, -5.0)
+    glVertex3f(1.5, 0.5, 2.0)
+    glVertex3f(-1.5, 0.5, 2.0)
+    glVertex3f(0.0, 0.0, -5.0)
+    glVertex3f(-1.5, -0.5, 2.0)
+    glVertex3f(1.5, -0.5, 2.0)
+    glEnd()
+    glBegin(GL_QUADS)
+    glColor3f(0.5, 0.5, 0.8)
+    glVertex3f(-1.5, 0.5, 2.0)
+    glVertex3f(1.5, 0.5, 2.0)
+    glVertex3f(1.5, -0.5, 2.0)
+    glVertex3f(-1.5, -0.5, 2.0)
+    glEnd()
+    glBegin(GL_QUADS)
+    glColor3f(0.75, 0.75, 0.9)
+    glVertex3f(-10.0, 0.0, 0.5)
+    glVertex3f(-2.0, 0.0, 0.5)
+    glVertex3f(2.0, 0.0, 0.5)
+    glVertex3f(10.0, 0.0, 0.5)
+    glVertex3f(-10.0, 0.0, 0.5)
+    glVertex3f(-2.0, 0.0, 0.5)
+    glVertex3f(-2.0, 0.0, -1.5)
+    glVertex3f(-10.0, 0.0, -1.5)
+    glVertex3f(10.0, 0.0, 0.5)
+    glVertex3f(2.0, 0.0, 0.5)
+    glVertex3f(2.0, 0.0, -1.5)
+    glVertex3f(10.0, 0.0, -1.5)
+    glEnd()
+    glBegin(GL_QUADS)
+    glColor3f(0.7, 0.7, 0.85)
+    glVertex3f(-1.0, 0.6, -3.0)
+    glVertex3f(1.0, 0.6, -3.0)
+    glVertex3f(1.0, 0.6, -2.0)
+    glVertex3f(-1.0, 0.6, -2.0)
+    glVertex3f(-1.0, -0.6, -3.0)
+    glVertex3f(1.0, -0.6, -3.0)
+    glVertex3f(1.0, -0.6, -2.0)
+    glVertex3f(-1.0, -0.6, -2.0)
+    glEnd()
+    glBegin(GL_QUADS)
+    glColor4f(0.2, 0.4, 0.7, 0.8)
+    glVertex3f(-0.6, 0.5, -0.5)
+    glVertex3f(0.6, 0.5, -0.5)
+    glVertex3f(0.6, -0.1, 1.0)
+    glVertex3f(-0.6, -0.1, 1.0)
+    glEnd()
 
-    def setup_gl(self):
-        glEnable(GL_DEPTH_TEST)
-        glEnable(GL_LIGHTING)
-        glEnable(GL_LIGHT0)
-        glEnable(GL_COLOR_MATERIAL)
-        glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
-        
-        glLight(GL_LIGHT0, GL_POSITION, (100, 200, 100, 0))
-        glLight(GL_LIGHT0, GL_AMBIENT, (0.3, 0.3, 0.3, 1))
-        glLight(GL_LIGHT0, GL_DIFFUSE, (1, 1, 1, 1))
-        glLight(GL_LIGHT0, GL_SPECULAR, (1, 1, 1, 1))
-        
-        glMatrixMode(GL_PROJECTION)
-        gluPerspective(60, (self.width / self.height), 0.1, 500.0)
-        glMatrixMode(GL_MODELVIEW)
 
-    def draw_aircraft(self):
-        """Draw a simple aircraft model"""
-        glPushMatrix()
-        
-        # Apply aircraft rotation
-        R = rotation_matrix(self.aircraft.yaw, self.aircraft.pitch, self.aircraft.roll)
-        
-        # Convert rotation matrix to OpenGL matrix
-        gl_matrix = [
-            R[0][0], R[1][0], R[2][0], 0,
-            R[0][1], R[1][1], R[2][1], 0,
-            R[0][2], R[1][2], R[2][2], 0,
-            0, 0, 0, 1
-        ]
-        glMultMatrixf(gl_matrix)
-        
-        # Fuselage
-        glColor3f(0.2, 0.2, 0.2)
-        self.draw_cylinder(0.5, 3.0, 20)
-        
-        # Wings
-        glColor3f(0.5, 0.5, 0.5)
-        glPushMatrix()
-        glTranslatef(0, 0.3, 0)
-        self.draw_box(8.0, 0.2, 1.0)
-        glPopMatrix()
-        
-        # Tail
-        glColor3f(0.4, 0.4, 0.4)
-        glPushMatrix()
-        glTranslatef(0, 0.2, -2.5)
-        self.draw_box(3.0, 0.1, 0.8)
-        glPopMatrix()
-        
-        glPopMatrix()
+def draw_ground_grid(size=500, step=10):
+    glDisable(GL_LIGHTING)
+    glColor3f(0.2, 0.6, 0.2)
+    glBegin(GL_LINES)
+    for x in range(-size, size + 1, step):
+        glVertex3f(x, 0.0, -size)
+        glVertex3f(x, 0.0, size)
+    for z in range(-size, size + 1, step):
+        glVertex3f(-size, 0.0, z)
+        glVertex3f(size, 0.0, z)
+    glEnd()
+    glEnable(GL_LIGHTING)
 
-    def draw_cylinder(self, radius, height, slices):
-        """Draw a cylinder"""
-        quad = GLUquadric()
-        glPushMatrix()
-        glRotatef(90, 0, 1, 0)
-        gluCylinder(quad, radius, radius, height, slices, 10)
-        glPopMatrix()
 
-    def draw_box(self, width, height, depth):
-        """Draw a box"""
-        glBegin(GL_TRIANGLES)
-        w, h, d = width/2, height/2, depth/2
-        vertices = [
-            (-w, -h, -d), (w, -h, -d), (w, h, -d), (-w, h, -d),
-            (-w, -h, d), (w, -h, d), (w, h, d), (-w, h, d)
-        ]
-        faces = [
-            (0,1,2), (0,2,3),  # front
-            (4,6,5), (4,7,6),  # back
-            (0,4,5), (0,5,1),  # bottom
-            (2,6,7), (2,7,3),  # top
-            (0,3,7), (0,7,4),  # left
-            (1,5,6), (1,6,2),  # right
-        ]
-        for face in faces:
-            for vertex_idx in face:
-                glVertex3fv(vertices[vertex_idx])
-        glEnd()
+def init_opengl(width, height):
+    glViewport(0, 0, width, height)
+    glEnable(GL_DEPTH_TEST)
+    glDepthFunc(GL_LEQUAL)
+    glShadeModel(GL_SMOOTH)
+    glClearColor(0.53, 0.78, 0.92, 1.0)
+    glEnable(GL_LIGHTING)
+    glEnable(GL_LIGHT0)
+    glLightfv(GL_LIGHT0, GL_AMBIENT, (0.2, 0.2, 0.2, 1.0))
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.9, 0.9, 0.9, 1.0))
+    glLightfv(GL_LIGHT0, GL_POSITION, (0.5, 1.0, 0.2, 0.0))
+    glEnable(GL_COLOR_MATERIAL)
+    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+    glMatrixMode(GL_PROJECTION)
+    glLoadIdentity()
+    gluPerspective(60.0, width / float(height or 1), 0.1, 5000.0)
+    glMatrixMode(GL_MODELVIEW)
+    glLoadIdentity()
 
-    def draw_terrain(self):
-        """Draw procedural terrain"""
-        glColor3f(0.2, 0.6, 0.2)
-        grid_size = 200
-        grid_step = 5
-        
-        glBegin(GL_TRIANGLES)
-        for x in range(-grid_size, grid_size, grid_step):
-            for z in range(-grid_size, grid_size, grid_step):
-                y00 = terrain_height(x, z)
-                y10 = terrain_height(x + grid_step, z)
-                y01 = terrain_height(x, z + grid_step)
-                y11 = terrain_height(x + grid_step, z + grid_step)
-                
-                # Triangle 1
-                glVertex3f(x, y00, z)
-                glVertex3f(x + grid_step, y10, z)
-                glVertex3f(x, y01, z + grid_step)
-                
-                # Triangle 2
-                glVertex3f(x + grid_step, y10, z)
-                glVertex3f(x + grid_step, y11, z + grid_step)
-                glVertex3f(x, y01, z + grid_step)
-        glEnd()
 
-    def draw_sky(self):
-        """Draw a simple sky dome"""
-        glDisable(GL_LIGHTING)
-        glColor3f(0.5, 0.7, 1.0)
-        
-        pos = self.aircraft.position
-        glPushMatrix()
-        glTranslatef(pos[0], pos[1], pos[2])
-        
-        quad = GLUquadric()
-        gluSphere(quad, 300, 30, 30)
-        
-        glPopMatrix()
-        glEnable(GL_LIGHTING)
-
-    def draw_hud(self):
-        """Draw heads-up display info on screen"""
-        glMatrixMode(GL_PROJECTION)
-        glPushMatrix()
-        glLoadIdentity()
-        glOrtho(0, self.width, self.height, 0, -1, 1)
-        glMatrixMode(GL_MODELVIEW)
-        glPushMatrix()
-        glLoadIdentity()
-        
-        glDisable(GL_LIGHTING)
-        glDisable(GL_DEPTH_TEST)
-        
-        speed = vec_len(self.aircraft.velocity)
-        altitude = self.aircraft.position[1] - terrain_height(self.aircraft.position[0], self.aircraft.position[2])
-        
-        glColor3f(0, 1, 0)
-        
-        glEnable(GL_DEPTH_TEST)
-        glEnable(GL_LIGHTING)
-        glMatrixMode(GL_PROJECTION)
-        glPopMatrix()
-        glMatrixMode(GL_MODELVIEW)
-        glPopMatrix()
-
-    def handle_input(self):
-        """Handle keyboard input"""
-        keys = pygame.key.get_pressed()
-        controls = {
-            'pitch': -1 if keys[K_w] else (1 if keys[K_s] else 0),
-            'roll': 1 if keys[K_d] else (-1 if keys[K_a] else 0),
-            'yaw': 1 if keys[K_q] else (-1 if keys[K_e] else 0),
-            'th_up': keys[K_UP],
-            'th_down': keys[K_DOWN],
-        }
-        
+def main():
+    pygame.init()
+    screen_size = (1280, 720)
+    pygame.display.set_mode(screen_size, DOUBLEBUF | OPENGL | RESIZABLE)
+    pygame.display.set_caption("flight_sim_3d.py")
+    init_opengl(*screen_size)
+    clock = pygame.time.Clock()
+    craft = Aircraft()
+    running = True
+    last_time = time.perf_counter()
+    while running:
+        now = time.perf_counter()
+        dt = now - last_time
+        last_time = now
+        if dt > 0.05:
+            dt = 0.05
+        pitch_in = roll_in = yaw_in = throttle_in = 0.0
         for event in pygame.event.get():
             if event.type == QUIT:
-                return False
-            if event.type == KEYDOWN:
+                running = False
+            elif event.type == VIDEORESIZE:
+                w, h = event.size
+                pygame.display.set_mode((w, h), DOUBLEBUF | OPENGL | RESIZABLE)
+                init_opengl(w, h)
+            elif event.type == KEYDOWN:
                 if event.key == K_ESCAPE:
-                    return False
-                if event.key == K_r:
-                    self.aircraft.reset()
-                if event.key == K_SPACE:
-                    self.paused = not self.paused
-                if event.key == K_i:
-                    self.debug_info = not self.debug_info
-        
-        return True, controls
-
-    def update(self, dt, controls):
-        """Update physics"""
-        if not self.paused:
-            self.aircraft.physics_step(dt, controls)
-
-    def render(self):
-        """Render the scene"""
+                    running = False
+                elif event.key == K_r:
+                    craft.reset()
+        keys = pygame.key.get_pressed()
+        if keys[K_w]:
+            pitch_in += 1.0
+        if keys[K_s]:
+            pitch_in -= 1.0
+        if keys[K_a]:
+            roll_in -= 1.0
+        if keys[K_d]:
+            roll_in += 1.0
+        if keys[K_q]:
+            yaw_in -= 1.0
+        if keys[K_e]:
+            yaw_in += 1.0
+        if keys[K_UP]:
+            throttle_in += 0.6
+        if keys[K_DOWN]:
+            throttle_in -= 0.6
+        craft.update(dt, pitch_in, roll_in, yaw_in, throttle_in)
+        forward, right, up = craft.get_body_axes()
+        cam_distance = 20.0
+        cam_height = 6.0
+        cam_pos = craft.pos - forward * cam_distance + np.array([0.0, cam_height, 0.0])
+        cam_target = craft.pos + forward * 8.0
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
-        
-        # Camera follows aircraft
-        pos = self.aircraft.position
-        glTranslatef(0, 0, -30)
-        
-        # Apply aircraft rotation to camera
-        R = rotation_matrix(self.aircraft.yaw, self.aircraft.pitch, self.aircraft.roll)
-        gl_matrix = [
-            R[0][0], R[1][0], R[2][0], 0,
-            R[0][1], R[1][1], R[2][1], 0,
-            R[0][2], R[1][2], R[2][2], 0,
-            0, 0, 0, 1
+        gluLookAt(cam_pos[0], cam_pos[1], cam_pos[2],
+                  cam_target[0], cam_target[1], cam_target[2],
+                  0.0, 1.0, 0.0)
+        glLightfv(GL_LIGHT0, GL_POSITION, (0.5, 1.0, 0.2, 0.0))
+        draw_ground_grid(size=500, step=10)
+        glPushMatrix()
+        glTranslatef(float(craft.pos[0]), float(craft.pos[1]), float(craft.pos[2]))
+        glRotatef(math.degrees(craft.yaw), 0.0, 1.0, 0.0)
+        glRotatef(math.degrees(craft.pitch), 1.0, 0.0, 0.0)
+        glRotatef(math.degrees(craft.roll), 0.0, 0.0, 1.0)
+        draw_aircraft()
+        glPopMatrix()
+        w, h = pygame.display.get_surface().get_size()
+        font = pygame.font.get_default_font()
+        f = pygame.font.Font(font, 18)
+        # large bold font for crash message
+        crash_font = pygame.font.SysFont(None, 72, bold=True)
+
+        hud_lines = [
+            f"Pos: X={craft.pos[0]:.1f} Y={craft.pos[1]:.1f} Z={craft.pos[2]:.1f}",
+            f"Vel: {np.linalg.norm(craft.vel):.1f} m/s",
+            f"Pitch: {math.degrees(craft.pitch):.1f}° Roll: {math.degrees(craft.roll):.1f}° Yaw: {math.degrees(craft.yaw):.1f}°",
+            f"Throttle: {craft.throttle:.2f}",
+            "Controls: W/S pitch, A/D roll, Q/E yaw, Up/Down throttle, R reset, Esc quit",
+            "Note: This is a simple prototype (PyOpenGL + pygame + numpy)."
         ]
-        glMultMatrixf(gl_matrix)
-        glTranslatef(-pos[0], -pos[1], -pos[2])
-        
-        # Draw scene
-        self.draw_sky()
-        self.draw_terrain()
-        self.draw_aircraft()
-        
+
+        # Make HUD taller if crashed so the CRASHED message fits
+        hud_height = 140 if craft.crashed else 100
+        surf = pygame.Surface((w, hud_height), SRCALPHA, 32)
+        surf = surf.convert_alpha()
+        surf.fill((0, 0, 0, 0))
+        y = 2
+        for line in hud_lines:
+            txt = f.render(line, True, (255, 255, 255))
+            surf.blit(txt, (8, y))
+            y += 18
+
+        # If crashed, draw a large bold red "CRASHED!" centered near the top of the HUD.
+        if craft.crashed:
+            crash_text = "CRASHED!"
+            # shadow for readability
+            shadow_surf = crash_font.render(crash_text, True, (0, 0, 0))
+            crash_surf = crash_font.render(crash_text, True, (220, 40, 40))
+            cx = (w - crash_surf.get_width()) // 2
+            cy = 8
+            surf.blit(shadow_surf, (cx + 2, cy + 2))
+            surf.blit(crash_surf, (cx, cy))
+
+        glMatrixMode(GL_PROJECTION)
+        glPushMatrix()
+        glLoadIdentity()
+        glOrtho(0, w, h, 0, -1, 1)
+        glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
+        glLoadIdentity()
+        hud_data = pygame.image.tostring(surf, "RGBA", True)
+        glRasterPos2i(0, 0)
+        glDrawPixels(surf.get_width(), surf.get_height(), GL_RGBA, GL_UNSIGNED_BYTE, hud_data)
+        glPopMatrix()
+        glMatrixMode(GL_PROJECTION)
+        glPopMatrix()
+        glMatrixMode(GL_MODELVIEW)
         pygame.display.flip()
+        clock.tick(60)
+    pygame.quit()
+    sys.exit(0)
 
-    def run(self):
-        """Main simulation loop"""
-        running = True
-        while running:
-            result = self.handle_input()
-            if result is False:
-                running = False
-                break
-            
-            running, controls = result
-            dt = self.clock.tick(60) / 1000.0  # 60 FPS
-            
-            self.update(dt, controls)
-            self.render()
-        
-        pygame.quit()
-
-# ============================================================================
-# Main
-# ============================================================================
 
 if __name__ == "__main__":
-    sim = FlightSimulator()
-    sim.run()
+    main()
