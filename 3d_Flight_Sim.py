@@ -3,9 +3,52 @@ import math
 import time
 import numpy as np
 import pygame
+import sys
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
+
+# ============================================================================
+# Math Utilities
+# ============================================================================
+
+def clamp(value, minval, maxval):
+    return max(minval, min(maxval, value))
+
+def vec_len(v):
+    return math.sqrt(v[0]**2 + v[1]**2 + v[2]**2)
+
+def vec_normalize(v):
+    length = vec_len(v)
+    if length < 1e-6:
+        return (0.0, 0.0, 0.0)
+    return (v[0]/length, v[1]/length, v[2]/length)
+
+def vec_add(v1, v2):
+    return (v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2])
+
+def vec_mul_scalar(v, s):
+    return (v[0]*s, v[1]*s, v[2]*s)
+
+def mat_vec_mul(M, v):
+    return (
+        M[0][0]*v[0] + M[0][1]*v[1] + M[0][2]*v[2],
+        M[1][0]*v[0] + M[1][1]*v[1] + M[1][2]*v[2],
+        M[2][0]*v[0] + M[2][1]*v[1] + M[2][2]*v[2],
+    )
+
+def rotation_matrix(yaw, pitch, roll):
+    cy, sy = math.cos(yaw), math.sin(yaw)
+    cp, sp = math.cos(pitch), math.sin(pitch)
+    cr, sr = math.cos(roll), math.sin(roll)
+    return (
+        (cy*cp, cy*sp*sr - sy*cr, cy*sp*cr + sy*sr),
+        (sy*cp, sy*sp*sr + cy*cr, sy*sp*cr - cy*sr),
+        (-sp,   cp*sr,            cp*cr),
+    )
+
+def terrain_height(x, z):
+    return 20.0 + 15.0 * math.sin(x * 0.01) * math.cos(z * 0.01)
 
 
 class Aircraft:
