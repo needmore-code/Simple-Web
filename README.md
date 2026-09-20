@@ -4,11 +4,12 @@ A collection of Python projects showcasing web and graphics development with Pyt
 
 ## Overview
 
-Simple-Web contains three distinct Python projects:
+Simple-Web contains four distinct Python projects:
 
 1. **3D Flight Simulator** - A realistic flight simulation with physics-based aircraft dynamics
 2. **PyChromium Browser** - A lightweight web browser built with PyQt5
 3. **Simple Website** - A basic Flask web server with a styled homepage
+4. **Messaging App** - A Flask + Socket.IO chat app with login, direct messaging, and group chats
 
 ## Projects
 
@@ -106,6 +107,44 @@ python website.py
 
 The server runs on `http://localhost:5000` and will automatically open in your default browser.
 
+### 💬 Messaging App (`app.py`)
+
+A web-based chat app with account signup/login, group chats, direct messages, SQLite storage, and live updates using Flask-SocketIO.
+
+**Features:**
+- User registration and login
+- Direct/private messaging
+- Group chat creation and membership management
+- Real-time message updates without page refresh
+- Online presence indicators
+- Persistent storage in `chat.db`
+
+**Requirements:**
+- Flask
+- Flask-Login
+- Flask-SocketIO
+- Werkzeug
+
+**Install:**
+```bash
+pip install Flask Flask-Login Flask-SocketIO Werkzeug
+```
+
+**Run:**
+```bash
+python app.py
+```
+
+The app listens on `http://0.0.0.0:5000`.
+
+To connect from another device on the same local network, find the host computer's IPv4 address using `ipconfig` on Windows (or `ip addr` on Linux/macOS), then open:
+
+```text
+http://<host-ip-address>:5000
+```
+
+Both devices must be connected to the same network, and the host firewall must allow TCP traffic on port `5000`.
+
 ## Installation
 
 Clone the repository:
@@ -116,7 +155,7 @@ cd Simple-Web
 
 Install dependencies:
 ```bash
-pip install pygame PyOpenGL numpy PyQt5 PyQtWebEngine Flask MarkupSafe
+pip install pygame PyOpenGL numpy PyQt5 PyQtWebEngine Flask Flask-Login Flask-SocketIO Werkzeug MarkupSafe
 ```
 
 ## Usage
@@ -132,6 +171,9 @@ python py_chromium_browser.py
 
 # Website
 python website.py
+
+# Messaging App
+python app.py
 ```
 
 ## License
