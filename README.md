@@ -4,12 +4,13 @@ A collection of Python projects showcasing web and graphics development with Pyt
 
 ## Overview
 
-Simple-Web contains four distinct Python projects:
+Simple-Web contains five distinct Python projects:
 
 1. **3D Flight Simulator** - A realistic flight simulation with physics-based aircraft dynamics
 2. **PyChromium Browser** - A lightweight web browser built with PyQt5
 3. **Simple Website** - A basic Flask web server with a styled homepage
 4. **Messaging App** - A Flask + Socket.IO chat app with login, direct messaging, and group chats
+5. **GPS Tracker** - An interactive real-time GPS tracking application with live map updates
 
 ## Projects
 
@@ -145,6 +146,40 @@ http://<host-ip-address>:5000
 
 Both devices must be connected to the same network, and the host firewall must allow TCP traffic on port `5000`.
 
+### 📍 GPS Tracker (`gps.py`)
+
+An interactive real-time GPS tracking application with live map visualization using Leaflet.js and the Geolocation API.
+
+**Features:**
+- Real-time GPS location tracking with high accuracy mode
+- Interactive map display powered by OpenStreetMap
+- Live location marker and accuracy radius visualization
+- Start/stop tracking controls
+- Display latitude, longitude, and accuracy metrics
+- Center map on current location button
+- Responsive design for mobile and desktop
+- Geolocation permission handling
+
+**Requirements:**
+- Flask
+
+**Usage:**
+```bash
+python gps.py
+```
+
+The app listens on `http://0.0.0.0:5000` and automatically starts tracking on load. 
+
+**Browser Compatibility:**
+- Requires HTTPS or localhost to use Geolocation API
+- Works on all modern browsers with geolocation support
+- Mobile-friendly interface for on-the-go tracking
+
+To connect from another device, use the host computer's IPv4 address:
+```text
+http://<host-ip-address>:5000
+```
+
 ## Installation
 
 Clone the repository:
@@ -174,6 +209,9 @@ python website.py
 
 # Messaging App
 python app.py
+
+# GPS Tracker
+python gps.py
 ```
 
 ## License
