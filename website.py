@@ -1,12 +1,11 @@
 from flask import Flask
-from markupsafe import Markup
 import webbrowser
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    html_content = """
+    return """
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -62,11 +61,10 @@ def home():
     </body>
     </html>
     """
-    return Markup(html_content)
 
 @app.route('/calculator')
 def calculator_page():
-    html_content = """
+    return """
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -74,9 +72,7 @@ def calculator_page():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Windows Calculator</title>
         <style>
-            * {
-                box-sizing: border-box;
-            }
+            * { box-sizing: border-box; }
 
             body {
                 margin: 0;
@@ -95,7 +91,7 @@ def calculator_page():
                 border-top-color: #f4f4f4;
                 border-left-color: #f4f4f4;
                 padding: 10px;
-                box-shadow: 8px 8px 20px rgba(0, 0, 0, 0.25);
+                box-shadow: 8px 8px 20px rgba(0,0,0,0.25);
             }
 
             .title-bar {
@@ -190,9 +186,7 @@ def calculator_page():
                 background: linear-gradient(#dce9f7, #9cb9d6);
             }
 
-            .wide {
-                grid-column: span 2;
-            }
+            .wide { grid-column: span 2; }
         </style>
     </head>
     <body>
@@ -239,231 +233,10 @@ def calculator_page():
             </div>
         </div>
 
-        <script>
-            const display = document.getElementById('display');
-
-            let currentValue = '0';
-            let storedValue = null;
-            let operator = null;
-            let waitingForSecondOperand = false;
-
-            function formatNumber(value) {
-                if (!Number.isFinite(value)) {
-                    return 'Error';
-                }
-
-                const absValue = Math.abs(value);
-                if (absValue >= 1e12 || (absValue > 0 && absValue < 1e-10)) {
-                    return Number(value).toExponential(8).replace(/\.0+e/, 'e');
-                }
-
-                const rounded = Number(value.toFixed(10));
-                return String(rounded);
-            }
-
-            function updateDisplay() {
-                display.textContent = currentValue;
-            }
-
-            function resetCalculator() {
-                currentValue = '0';
-                storedValue = null;
-                operator = null;
-                waitingForSecondOperand = false;
-                updateDisplay();
-            }
-
-            function inputDigit(digit) {
-                if (waitingForSecondOperand) {
-                    currentValue = digit;
-                    waitingForSecondOperand = false;
-                } else {
-                    currentValue = currentValue === '0' ? digit : currentValue + digit;
-                }
-                updateDisplay();
-            }
-
-            function inputDecimal() {
-                if (waitingForSecondOperand) {
-                    currentValue = '0.';
-                    waitingForSecondOperand = false;
-                } else if (!currentValue.includes('.')) {
-                    currentValue += '.';
-                }
-                updateDisplay();
-            }
-
-            function performCalculation() {
-                const input = Number(currentValue);
-                const previous = Number(storedValue);
-
-                if (operator === '+') {
-                    return previous + input;
-                }
-                if (operator === '−') {
-                    return previous - input;
-                }
-                if (operator === '×') {
-                    return previous * input;
-                }
-                if (operator === '÷') {
-                    if (input === 0) return 'Error';
-                    return previous / input;
-                }
-
-                return input;
-            }
-
-            function handleOperator(nextOperator) {
-                const inputValue = Number(currentValue);
-
-                if (storedValue === null) {
-                    storedValue = inputValue;
-                } else if (operator && !waitingForSecondOperand) {
-                    const result = performCalculation();
-                    currentValue = formatNumber(result);
-                    storedValue = result;
-                }
-
-                waitingForSecondOperand = true;
-                operator = nextOperator;
-                updateDisplay();
-            }
-
-            function handleEquals() {
-                if (!operator || waitingForSecondOperand) {
-                    return;
-                }
-
-                const result = performCalculation();
-                currentValue = formatNumber(result);
-                storedValue = result;
-                operator = null;
-                waitingForSecondOperand = true;
-                updateDisplay();
-            }
-
-            function handlePercent() {
-                const value = Number(currentValue) / 100;
-                currentValue = formatNumber(value);
-                updateDisplay();
-            }
-
-            function handleToggleSign() {
-                const value = Number(currentValue);
-                currentValue = formatNumber(-value);
-                updateDisplay();
-            }
-
-            document.querySelectorAll('button').forEach((button) => {
-                button.addEventListener('click', () => {
-                    const value = button.dataset.value;
-                    const action = button.dataset.action;
-
-                    if (value !== undefined) {
-                        if (value === '.') {
-                            inputDecimal();
-                        } else {
-                            inputDigit(value);
-                        }
-                        return;
-                    }
-
-                    switch (action) {
-                        case 'clear':
-                            resetCalculator();
-                            break;
-                        case 'toggle-sign':
-                            handleToggleSign();
-                            break;
-                        case 'percent':
-                            handlePercent();
-                            break;
-                        case 'add':
-                            handleOperator('+');
-                            break;
-                        case 'subtract':
-                            handleOperator('−');
-                            break;
-                        case 'multiply':
-                            handleOperator('×');
-                            break;
-                        case 'divide':
-                            handleOperator('÷');
-                            break;
-                        case 'equals':
-                            handleEquals();
-                            break;
-                        default:
-                            break;
-                    }
-                });
-            });
-
-            document.addEventListener('keydown', (event) => {
-                const key = event.key;
-
-                if (/^[0-9]$/.test(key)) {
-                    event.preventDefault();
-                    inputDigit(key);
-                    return;
-                }
-
-                if (key === '.') {
-                    event.preventDefault();
-                    inputDecimal();
-                    return;
-                }
-
-                if (key === '+') {
-                    event.preventDefault();
-                    handleOperator('+');
-                    return;
-                }
-
-                if (key === '-') {
-                    event.preventDefault();
-                    handleOperator('−');
-                    return;
-                }
-
-                if (key === '*') {
-                    event.preventDefault();
-                    handleOperator('×');
-                    return;
-                }
-
-                if (key === '/') {
-                    event.preventDefault();
-                    handleOperator('÷');
-                    return;
-                }
-
-                if (key === 'Enter' || key === '=') {
-                    event.preventDefault();
-                    handleEquals();
-                    return;
-                }
-
-                if (key === 'Backspace') {
-                    event.preventDefault();
-                    currentValue = currentValue.length <= 1 || (currentValue.length === 2 && currentValue.startsWith('-'))
-                        ? '0'
-                        : currentValue.slice(0, -1);
-                    updateDisplay();
-                    return;
-                }
-
-                if (key === 'Escape') {
-                    event.preventDefault();
-                    resetCalculator();
-                }
-            });
-        </script>
+        <script src="/calculator.js"></script>
     </body>
     </html>
     """
-    return Markup(html_content)
 
 if __name__ == '__main__':
     webbrowser.open('http://localhost:5000')
