@@ -8,7 +8,7 @@ Simple-Web contains five distinct Python projects:
 
 1. **3D Flight Simulator** - A realistic flight simulation with physics-based aircraft dynamics
 2. **PyChromium Browser** - A lightweight web browser built with PyQt5
-3. **Simple Website** - A basic Flask web server with a styled homepage
+3. **Simple Website** - A Flask project hub that lists and links to the repository's apps
 4. **Messaging App** - A Flask + Socket.IO chat app with login, direct messaging, and group chats
 5. **GPS Tracker** - An interactive real-time GPS tracking application with live map updates
 
@@ -52,8 +52,6 @@ A feature-rich 3D flight simulator built with OpenGL and Pygame that includes:
 - `Q/E` - Yaw left/right
 - `↑/↓` - Increase/decrease throttle
 - `R` - Reset aircraft
-- `Space` - Pause/resume
-- `I` - Toggle debug info
 - `ESC` - Exit
 
 ### 🌐 PyChromium Browser (`py_chromium_browser.py`)
@@ -86,27 +84,27 @@ A multi-tab web browser built with PyQt5 and Chromium engine featuring:
 python py_chromium_browser.py
 ```
 
-### 📄 Simple Website (`website.py`)
+### 📄 Project Hub (`website.py`)
 
-A basic Flask web server that serves a styled homepage.
+A Flask-powered project hub that serves as the landing page for Simple-Web.
 
-- **Features**
-  - Single-page application
-  - Turquoise background design
-  - Centered content container
-  - Auto-opens in default browser
-  - Debug mode enabled
+- Displays the repository's applications as responsive project cards
+- Shows each project's icon, category, description, run command, and source link
+- Groups projects into Desktop app and Web app categories
+- Includes a responsive turquoise and blue-green design
+- Includes guidance for installing dependencies and running the projects
+- Automatically opens `http://localhost:5000` in the default browser
+- Runs in Flask debug mode
 
 **Requirements:**
 - Flask
-- MarkupSafe
 
 **Usage:**
 ```bash
 python website.py
 ```
 
-The server runs on `http://localhost:5000` and will automatically open in your default browser.
+The project hub runs at `http://localhost:5000`.
 
 ### 💬 Messaging App (`app.py`)
 
@@ -168,11 +166,11 @@ An interactive real-time GPS tracking application with live map visualization us
 python gps.py
 ```
 
-The app listens on `http://0.0.0.0:5000` and automatically starts tracking on load. 
+The app listens on `http://0.0.0.0:5000` and the browser asks for GPS permission when tracking starts.
 
 **Browser Compatibility:**
-- Requires HTTPS or localhost to use Geolocation API
-- Works on all modern browsers with geolocation support
+- Requires HTTPS or localhost to use the Geolocation API
+- Works on modern browsers with geolocation support
 - Mobile-friendly interface for on-the-go tracking
 
 To connect from another device, use the host computer's IPv4 address:
@@ -190,7 +188,7 @@ cd Simple-Web
 
 Install dependencies:
 ```bash
-pip install pygame PyOpenGL numpy PyQt5 PyQtWebEngine Flask Flask-Login Flask-SocketIO Werkzeug MarkupSafe
+pip install pygame PyOpenGL numpy PyQt5 PyQtWebEngine Flask Flask-Login Flask-SocketIO Werkzeug
 ```
 
 ## Usage
@@ -204,7 +202,7 @@ python 3d_Flight_Sim.py
 # Web Browser
 python py_chromium_browser.py
 
-# Website
+# Project Hub
 python website.py
 
 # Messaging App
@@ -213,10 +211,6 @@ python app.py
 # GPS Tracker
 python gps.py
 ```
-
-## License
-
-This project is open source. Feel free to use, modify, and distribute as needed.
 
 ## Author
 
