@@ -1,45 +1,23 @@
 # Simple-Web
 
-A collection of Python projects showcasing web and graphics development with Python.
+A collection of Python projects showcasing web applications, desktop apps, and graphical experiments.
 
 ## Overview
 
-Simple-Web contains five distinct Python projects:
+Simple-Web currently contains six projects:
 
-1. **3D Flight Simulator** - A realistic flight simulation with physics-based aircraft dynamics
-2. **PyChromium Browser** - A lightweight web browser built with PyQt5
-3. **Simple Website** - A basic Flask web server with a styled homepage
-4. **Messaging App** - A Flask + Socket.IO chat app with login, direct messaging, and group chats
-5. **GPS Tracker** - An interactive real-time GPS tracking application with live map updates
+1. **3D Flight Simulator** — A realistic flight simulator with aircraft physics.
+2. **PyChromium Browser** — A multi-tab desktop browser built with PyQt5 and Chromium.
+3. **Messaging App** — A Flask and Socket.IO chat app with accounts and private/group chat.
+4. **GPS Tracker** — An interactive browser-based real-time location tracker.
+5. **AI Chatbot** — A local chatbot powered by Ollama and the OpenAI-compatible API.
+6. **Simple Website** — A Flask project hub linking to the repository projects.
 
 ## Projects
 
 ### 🛩️ 3D Flight Simulator (`3d_Flight_Sim.py`)
 
-A feature-rich 3D flight simulator built with OpenGL and Pygame that includes:
-
-- **Realistic Aircraft Physics**
-  - Aerodynamic lift and drag calculations
-  - Thrust and gravity simulation
-  - Angle of attack computation
-  - Propulsion system modeling
-
-- **Advanced Flight Controls**
-  - Pitch, roll, and yaw control
-  - Throttle management
-  - Orientation represented as Euler angles
-  - Smooth flight dynamics
-
-- **Visual Features**
-  - 3D aircraft model with fuselage, wings, and tail
-  - Procedurally generated terrain
-  - Sky dome rendering
-  - Real-time camera following the aircraft
-
-- **Gameplay**
-  - Altitude and speed monitoring
-  - Terrain collision detection
-  - Aircraft state management
+A 3D flight simulator built with Pygame, OpenGL, and NumPy.
 
 **Requirements:**
 - pygame
@@ -47,164 +25,110 @@ A feature-rich 3D flight simulator built with OpenGL and Pygame that includes:
 - numpy
 
 **Controls:**
-- `W/S` - Pitch up/down
-- `A/D` - Roll left/right
-- `Q/E` - Yaw left/right
-- `↑/↓` - Increase/decrease throttle
-- `R` - Reset aircraft
-- `Space` - Pause/resume
-- `I` - Toggle debug info
-- `ESC` - Exit
+- `W/S` — Pitch up/down
+- `A/D` — Roll left/right
+- `Q/E` — Yaw left/right
+- `↑/↓` — Increase/decrease throttle
+- `R` — Reset aircraft
+- `Esc` — Exit
 
 ### 🌐 PyChromium Browser (`py_chromium_browser.py`)
 
-A multi-tab web browser built with PyQt5 and Chromium engine featuring:
+A multi-tab desktop browser built with PyQt5 and PyQtWebEngine.
 
-- **Tab Management**
-  - Open multiple tabs simultaneously
-  - Close tabs (minimum one tab required)
-  - Tab switching with title updates
-
-- **Navigation**
-  - Back and forward buttons
-  - Page reload functionality
-  - Home button (defaults to Google)
-  - URL bar with auto-formatting
-
-- **User Experience**
-  - Loading progress indicator
-  - Load status feedback
-  - Responsive toolbar navigation
-  - Clean, intuitive interface
-
-**Requirements:**
-- PyQt5
-- PyQtWebEngine
-
-**Usage:**
 ```bash
+pip install PyQt5 PyQtWebEngine
 python py_chromium_browser.py
 ```
 
-### 📄 Simple Website (`website.py`)
-
-A basic Flask web server that serves a styled homepage.
-
-- **Features**
-  - Single-page application
-  - Turquoise background design
-  - Centered content container
-  - Auto-opens in default browser
-  - Debug mode enabled
-
-**Requirements:**
-- Flask
-- MarkupSafe
-
-**Usage:**
-```bash
-python website.py
-```
-
-The server runs on `http://localhost:5000` and will automatically open in your default browser.
-
 ### 💬 Messaging App (`app.py`)
 
-A web-based chat app with account signup/login, group chats, direct messages, SQLite storage, and live updates using Flask-SocketIO.
+A web chat app with registration, login, direct messages, group chats, SQLite storage, and live updates.
 
-**Features:**
-- User registration and login
-- Direct/private messaging
-- Group chat creation and membership management
-- Real-time message updates without page refresh
-- Online presence indicators
-- Persistent storage in `chat.db`
-
-**Requirements:**
-- Flask
-- Flask-Login
-- Flask-SocketIO
-- Werkzeug
-
-**Install:**
 ```bash
 pip install Flask Flask-Login Flask-SocketIO Werkzeug
-```
-
-**Run:**
-```bash
 python app.py
 ```
 
-The app listens on `http://0.0.0.0:5000`.
-
-To connect from another device on the same local network, find the host computer's IPv4 address using `ipconfig` on Windows (or `ip addr` on Linux/macOS), then open:
-
-```text
-http://<host-ip-address>:5000
-```
-
-Both devices must be connected to the same network, and the host firewall must allow TCP traffic on port `5000`.
+The app listens on `http://0.0.0.0:5000`. To access it from another device on the same network, open `http://<host-ipv4-address>:5000` and allow TCP port 5000 through the Windows firewall.
 
 ### 📍 GPS Tracker (`gps.py`)
 
-An interactive real-time GPS tracking application with live map visualization using Leaflet.js and the Geolocation API.
+A real-time location tracker using Leaflet.js and the Geolocation API.
 
-**Features:**
-- Real-time GPS location tracking with high accuracy mode
-- Interactive map display powered by OpenStreetMap
-- Live location marker and accuracy radius visualization
-- Start/stop tracking controls
-- Display latitude, longitude, and accuracy metrics
-- Center map on current location button
-- Responsive design for mobile and desktop
-- Geolocation permission handling
-
-**Requirements:**
-- Flask
-
-**Usage:**
 ```bash
+pip install Flask
 python gps.py
 ```
 
-The app listens on `http://0.0.0.0:5000` and automatically starts tracking on load. 
+The app listens on `http://0.0.0.0:5000` and asks for GPS permission in the browser.
 
-**Browser Compatibility:**
-- Requires HTTPS or localhost to use Geolocation API
-- Works on all modern browsers with geolocation support
-- Mobile-friendly interface for on-the-go tracking
+> Browser compatibility: Geolocation requires HTTPS or localhost. It works on modern browsers with geolocation support and is mobile-friendly.
 
-To connect from another device, use the host computer's IPv4 address:
-```text
-http://<host-ip-address>:5000
+### 🤖 AI Chatbot (`ai_chatbot.py`)
+
+A Flask chat interface that uses Ollama through an OpenAI-compatible local API. Ollama and model inference run locally, and no real OpenAI API key is required.
+
+**Install Ollama:**
+
+1. Download and install Ollama from <https://ollama.com/download/windows>.
+2. Download the model:
+
+```powershell
+ollama pull llama3.2:3b
 ```
+
+3. Start Ollama in its own terminal:
+
+```powershell
+ollama serve
+```
+
+**Install and run the chatbot:**
+
+```powershell
+pip install flask openai
+python ai_chatbot.py
+```
+
+Open `http://127.0.0.1:5001`.
+
+If Ollama is already running, do not start `ollama serve` again.
+
+### 🧭 Project Hub (`website.py`)
+
+A Flask project hub that shows the repository apps as cards and includes run commands and source links.
+
+```bash
+pip install Flask
+python website.py
+```
+
+The hub automatically opens at `http://localhost:5000`.
 
 ## Installation
 
 Clone the repository:
+
 ```bash
 git clone https://github.com/needmore-code/Simple-Web.git
 cd Simple-Web
 ```
 
-Install dependencies:
-```bash
-pip install pygame PyOpenGL numpy PyQt5 PyQtWebEngine Flask Flask-Login Flask-SocketIO Werkzeug MarkupSafe
-```
+Install dependencies for the project you want to run. Each project is independent and has its own dependencies.
 
 ## Usage
 
-Run any project individually:
+Run a project from the repository folder:
 
 ```bash
-# Flight Simulator
+# 3D Flight Simulator
 python 3d_Flight_Sim.py
 
-# Web Browser
+# PyChromium Browser
 python py_chromium_browser.py
 
-# Website
+# Project Hub
 python website.py
 
 # Messaging App
@@ -212,11 +136,12 @@ python app.py
 
 # GPS Tracker
 python gps.py
+
+# AI Chatbot
+python ai_chatbot.py
 ```
 
-## License
-
-This project is open source. Feel free to use, modify, and distribute as needed.
+Only run one server-based project at a time when using the same port. Stop the current server with `Ctrl+C` before starting another one.
 
 ## Author
 
@@ -224,4 +149,4 @@ Created by [needmore-code](https://github.com/needmore-code)
 
 ---
 
-**Note:** Each script is designed to be run independently. Ensure you have Python 3.x installed along with the required dependencies for each project.
+**Note:** Each project is independent. Make sure Python 3.x and the dependencies for each project are installed.

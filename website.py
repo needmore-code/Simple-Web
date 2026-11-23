@@ -37,7 +37,16 @@ PROJECTS = [
         "file": "gps.py",
     },
     {
+        "icon": "🤖",
+        "name": "Ollama AI Chatbot",
+        "description": "A private, local AI chatbot powered by Ollama and the OpenAI-compatible Python API.",
+        "kind": "Web app",
+        "command": "python ai_chatbot.py",
+        "file": "ai_chatbot.py",
+    },
+    {
         "icon": "🎨",
+
         "name": "Simple Website",
         "description": "The project hub you're viewing now—a simple Flask website connecting the repository projects.",
         "kind": "Web app",
@@ -135,7 +144,7 @@ HTML_PAGE = """
             line-height: 1.55;
         }
         footer { padding: 18px 0 0; color: #526a70; text-align: center; font-size: 14px; }
-        footer a { color: #087c78; font-weight: 700; }
+        footer a { color: #087c78; font-weight: 700; text-decoration: none; }
         @media (max-width: 560px) {
             body { padding: 22px 14px; }
             .hero { padding: 30px 18px; }
@@ -147,7 +156,7 @@ HTML_PAGE = """
         <header class="hero">
             <div class="eyebrow">Simple-Web · Project collection</div>
             <h1>One home for all our projects</h1>
-            <p class="intro">Explore the apps and experiments in this repository. Each project has its own source code and can be run separately on your computer.</p>
+            <p class="intro">Explore the apps and experiments in this repository. Each project has its own source code and can be run separately.</p>
         </header>
 
         <section class="projects" aria-label="Repository projects">
@@ -164,7 +173,7 @@ HTML_PAGE = """
         </section>
 
         <aside class="note">
-            <strong>Running projects:</strong> Install each project's dependencies first, then run its command from the repository folder. The desktop projects open as local applications. The web apps start separate servers, so stop one server before starting another if they use the same port.
+            <strong>Running projects:</strong> Install each project's dependencies first, then run its command from the repository folder. Desktop projects open as local applications. Web apps start separate servers, so stop one server before starting another if they use the same port.
         </aside>
 
         <footer>Browse the complete <a href="https://github.com/needmore-code/Simple-Web" target="_blank" rel="noopener noreferrer">Simple-Web repository</a> on GitHub.</footer>
@@ -176,6 +185,7 @@ HTML_PAGE = """
 @app.route("/")
 def home():
     return render_template_string(HTML_PAGE, projects=PROJECTS)
+
 
 if __name__ == "__main__":
     webbrowser.open("http://localhost:5000")
